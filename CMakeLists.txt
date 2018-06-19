@@ -42,6 +42,11 @@ add_executable(
   nodes/state_calculator_node.cpp
   src/state_calculator.cpp
 )
+add_executable(
+  controller_node
+  nodes/controller_node.cpp
+  src/controller.cpp
+)
 
 add_dependencies(
   robot_executor_node
@@ -49,6 +54,10 @@ add_dependencies(
 )
 add_dependencies(
   state_calculator_node
+  task_sim_generate_messages_cpp
+)
+add_dependencies(
+  controller_node
   task_sim_generate_messages_cpp
 )
 
@@ -58,6 +67,10 @@ target_link_libraries(
 )
 target_link_libraries(
   state_calculator_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  controller_node
   ${catkin_LIBRARIES}
 )
 

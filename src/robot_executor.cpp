@@ -7,7 +7,7 @@ RobotExecutor::RobotExecutor() : pn("~"),
                                  gripper_client("gripper_actions/gripper_manipulation"),
                                  primitive_client("nimbus_moveit/primitive_action")
 {
-  state_subscriber = n.subscribe("state_calculator/state", 1, &RobotExecutor::stateCallback, this);
+  state_subscriber = n.subscribe("state_calculator_node/state", 1, &RobotExecutor::stateCallback, this);
 
   cartesian_path_client = n.serviceClient<rail_manipulation_msgs::CartesianPath>("nimbus_moveit/cartesian_path");
   execute_server = pn.advertiseService("execute_action", &RobotExecutor::executeCallback, this);
