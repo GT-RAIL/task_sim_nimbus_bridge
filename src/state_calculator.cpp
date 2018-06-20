@@ -112,8 +112,6 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
   for (unsigned int i = 0; i < msg.objects.size(); i ++)
   {
     // TODO: implement classifier (classify_object.py, training infrastructure)
-    string label = "";
-
     // calculate features for recognition
     Eigen::Vector3f rgb, lab;
     rgb[0] = msg.objects[i].marker.color.r;
@@ -127,22 +125,23 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     classify.request.features.push_back(lab[0]);
     classify.request.features.push_back(lab[1]);
     classify.request.features.push_back(lab[2]);
-    if (box.dimensions[0] > box.dimensions[1])
+    if (box.dimensions.x > box.dimensions.y)
     {
-      classify.request.features.push_back(box.dimensions[0]);
-      classify.request.features.push_back(box.dimensions[1]);
+      classify.request.features.push_back(box.dimensions.x);
+      classify.request.features.push_back(box.dimensions.y);
     }
     else
     {
-      classify.request.features.push_back(box.dimensions[1]);
-      classify.request.features.push_back(box.dimensions[0]);
+      classify.request.features.push_back(box.dimensions.y);
+      classify.request.features.push_back(box.dimensions.x);
     }
-    classify.request.features.push_back(box.dimensions[2]);
+    classify.request.features.push_back(box.dimensions.z);
 
     if (not classify_client.call(classify))
     {
       ROS_INFO("Could not call object classifier.");
-      return false;
+      segmented_objects_updated = true;
+      return;
     }
 
     string label = classify.response.label;
