@@ -6,12 +6,36 @@ project(task_sim_nimbus_bridge)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   actionlib
+  ar_track_alvar_msgs
+  cmake_modules
+  eigen_conversions
   geometry_msgs
+  message_generation
+  pcl_conversions
+  pcl_ros
   roscpp
   rospy
+  sensor_msgs
   std_srvs
   task_sim
   tf
+)
+find_package(Boost REQUIRED COMPONENTS thread)
+find_package(Eigen REQUIRED)
+
+add_message_files(
+  FILES
+  BoundingBox.msg
+)
+
+add_service_files(
+  FILES
+  Classify.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
 )
 
 catkin_package(
@@ -29,7 +53,9 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
   include
+  ${boost_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN_INCLUDE_DIRS}
 )
 
 add_executable(
@@ -41,6 +67,7 @@ add_executable(
   state_calculator_node
   nodes/state_calculator_node.cpp
   src/state_calculator.cpp
+  src/bounding_box_calculator.cpp
 )
 add_executable(
   controller_node
@@ -55,6 +82,7 @@ add_dependencies(
 add_dependencies(
   state_calculator_node
   task_sim_generate_messages_cpp
+  task_sim_nimbus_bridge_generate_messages_cpp
 )
 add_dependencies(
   controller_node
@@ -67,7 +95,9 @@ target_link_libraries(
 )
 target_link_libraries(
   state_calculator_node
+  ${boost_LIBRARIES}
   ${catkin_LIBRARIES}
+  ${EIGEN_INCLUDE_DIRS}
 )
 target_link_libraries(
   controller_node

@@ -1,22 +1,20 @@
-<!-- Script to train RL agents -->
 <launch>
-    <!-- Train RL config file (Required) -->
-    <arg name="config_file" />
+    <!-- alvar args -->
+    <arg name="marker_size" default="6.5" />
+    <arg name="max_new_marker_error" default="0.08" />
+    <arg name="max_track_error" default="0.2" />
+    <arg name="cam_image_topic" default="/camera/depth_registered/points" />
+    <arg name="cam_info_topic" default="/camera/rgb/camera_info" />
+    <arg name="output_frame" default="camera_link" />
 
-    <!-- Table Sim args -->
-    <arg name="sim_quiet_mode" default="true" />
-    <arg name="sim_terminal_input" default="false" />
-    <arg name="sim_seed" default="0" />
+    <!-- Marker tracking -->
+    <node name="ar_track_alvar" pkg="ar_track_alvar" type="individualMarkers" respawn="false" output="screen">
+        <param name="marker_size" value="$(arg marker_size)" />
+        <param name="max_new_marker_error" value="$(arg max_new_marker_error)" />
+        <param name="max_track_error" value="$(arg max_track_error)" />
+        <param name="output_frame" value="$(arg output_frame)" />
 
-    <!-- Table sim node -->
-    <node name="table_sim" pkg="task_sim" type="table_sim.py" clear_params="true">
-        <param name="quiet_mode" value="$(arg sim_quiet_mode)" />
-        <param name="terminal_input" value="$(arg sim_terminal_input)" />
-        <param name="seed" value="$(arg sim_seed)" />
-    </node>
-
-    <!-- Trainer node -->
-    <node name="train_rl" pkg="task_sim" type="train_rl.py" clear_params="true" required="true" output="screen">
-        <rosparam command="load" file="$(arg config_file)" />
+        <remap from="camera_image"  to="$(arg cam_image_topic)" />
+        <remap from="camera_info"   to="$(arg cam_info_topic)" />
     </node>
 </launch>

@@ -1,22 +1,249 @@
 #include "task_sim_nimbus_bridge/state_calculator.h"
+#include "task_sim_nimbus_bridge/bounding_box_calculator.h"
 
 using namespace std;
 
 StateCalculator::StateCalculator() : pn("~")
 {
-//  state_subscriber = n.subscribe("state_calculator/state", 1, &RobotExecutor::stateCallback, this);
+  segmented_objects_updated = true;
+
+  ar_subscriber = n.subscribe("ar_pose_marker", 1, &StateCalculator::arCallback, this);
+  segmented_objects_subscriber = n.subscribe("rail_segmentation/segmented_objects", 1,
+                                             &StateCalculator::segmentedObjectsCallback, this);
   state_publisher = pn.advertise<task_sim::State>("state", 1, this);
 
-//  cartesian_path_client = n.serviceClient<rail_manipulation_msgs::CartesianPath>("nimbus_moveit/cartesian_path");
+  segment_client = n.serviceClient<std_srvs::Empty>("rail_segmentation/segment");
+  classify_client = n.serviceClient<task_sim_nimbus_bridge::Classify>("classifier/classify");
   state_server = pn.advertiseService("calculate_state", &StateCalculator::calculateStateCallback, this);
 }
 
 bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req, task_sim::QueryState::Response &res)
 {
-  // TODO: Calculate full state using a combination of depth segmentation, AR tags, and robot tfs
+  // segmentation updates (items)
+  segmented_objects_updated = false;
+
+  ros::Time start = ros::Time::now();
+  bool timeout = false;
+  while (!segmented_objects_updated && !timeout)
+  {
+    timeout = (ros::Time::now() - start).toSec() > 10.0;
+    ros::spinOnce();
+    ros::Duration(0.1).sleep();
+  }
+
+  if (timeout)
+  {
+    ROS_INFO("Couldn't segment objects.");
+    return false;
+  }
+
+  // AR tag updates (containers)
+  {
+    boost::mutex::scoped_lock lock(ar_mutex);
+    state.drawer_position.x = stack_pose.pose.position.x;
+    state.drawer_position.y = stack_pose.pose.position.y;
+    state.drawer_opening = drawer_pose.pose.position.x - stack_pose.pose.position.x;
+    if (state.drawer_opening < 0)
+    {
+      state.drawer_opening = 0;
+    }
+
+    // TODO: box_position, lid_position
+  }
+
+  // Robot update
+  tf::StampedTransform gripper_transform;
+  tf_listener.lookupTransform("table_base_link", "nimbus_ee_link", ros::Time(0), gripper_transform);
+  state.gripper_position.x = gripper_transform.getOrigin().x();
+  state.gripper_position.y = gripper_transform.getOrigin().y();
+  state.gripper_position.z = gripper_transform.getOrigin().z();
+
+  // TODO: gripper_open
+
   res.state = state;
 
   state_publisher.publish(state);
 
   return true;
+}
+
+void StateCalculator::arCallback(const ar_track_alvar_msgs::AlvarMarkers &msg)
+{
+  boost::mutex::scoped_lock lock(ar_mutex);
+
+  for (unsigned int i = 0; i < msg.markers.size(); i ++)
+  {
+    if (msg.markers[i].id == 1)
+    {
+      // stack position
+      geometry_msgs::PoseStamped marker_pose = msg.markers[i].pose;
+      marker_pose.header.frame_id = msg.markers[i].header.frame_id;
+      tf_listener.transformPose("table_base_link", ros::Time(0), marker_pose, "table_base_link", stack_pose);
+      stack_pose.header.frame_id = "table_base_link";
+
+      stack_pose.pose.position.x += 0.15;
+      stack_pose.pose.position.y += 0.085;
+      stack_pose.pose.position.z -= 0.08;
+    }
+    else if (msg.markers[i].id == 4)
+    {
+      // drawer position
+      geometry_msgs::PoseStamped marker_pose = msg.markers[i].pose;
+      marker_pose.header.frame_id = msg.markers[i].header.frame_id;
+      tf_listener.transformPose("table_base_link", ros::Time(0), marker_pose, "table_base_link", drawer_pose);
+      drawer_pose.header.frame_id = "table_base_link";
+
+      drawer_pose.pose.position.x -= 0.157;
+      drawer_pose.pose.position.y += 0.085;
+      drawer_pose.pose.position.z += 0.025;
+    }
+  }
+}
+
+void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::SegmentedObjectList &msg)
+{
+  if (msg.cleared)
+  {
+    return;
+  }
+
+  recognized_objects.objects.clear();
+
+  for (unsigned int i = 0; i < msg.objects.size(); i ++)
+  {
+    // TODO: implement classifier (classify_object.py, training infrastructure)
+    string label = "";
+
+    // calculate features for recognition
+    Eigen::Vector3f rgb, lab;
+    rgb[0] = msg.objects[i].marker.color.r;
+    rgb[1] = msg.objects[i].marker.color.g;
+    rgb[2] = msg.objects[i].marker.color.b;
+    lab = RGB2Lab(rgb);
+
+    task_sim_nimbus_bridge::BoundingBox box = BoundingBoxCalculator::computeBoundingBox(msg.objects[i].point_cloud);
+
+    task_sim_nimbus_bridge::Classify classify;
+    classify.request.features.push_back(lab[0]);
+    classify.request.features.push_back(lab[1]);
+    classify.request.features.push_back(lab[2]);
+    if (box.dimensions[0] > box.dimensions[1])
+    {
+      classify.request.features.push_back(box.dimensions[0]);
+      classify.request.features.push_back(box.dimensions[1]);
+    }
+    else
+    {
+      classify.request.features.push_back(box.dimensions[1]);
+      classify.request.features.push_back(box.dimensions[0]);
+    }
+    classify.request.features.push_back(box.dimensions[2]);
+
+    if (not classify_client.call(classify))
+    {
+      ROS_INFO("Could not call object classifier.");
+      return false;
+    }
+
+    string label = classify.response.label;
+
+    if (label == "apple" or label == "banana" or label == "carrot" or label == "daikon")
+    {
+      bool object_updated = false;
+      for (unsigned int j = 0; j < state.objects.size(); j ++)
+      {
+        if (state.objects[j].name == label)
+        {
+          state.objects[j].position = msg.objects[i].center;
+          // TODO: in_drawer, in_box, on_lid, on_stack, in_gripper, occluded, lost...
+
+          object_updated = true;
+          break;
+        }
+      }
+      if (!object_updated)
+      {
+        task_sim::Object item;
+        item.name = label;
+        item.unique_name = item.name;
+        item.position = msg.objects[i].center;
+        // TODO: in_drawer, in_box, on_lid, on_stack, in_gripper, occluded, lost...
+
+        state.objects.push_back(item);
+      }
+
+      recognized_objects.objects.push_back(msg.objects[i]);
+      recognized_objects.objects[recognized_objects.objects.size() - 1].recognized = true;
+      recognized_objects.objects[recognized_objects.objects.size() - 1].name = label;
+    }
+  }
+
+  segmented_objects_updated = true;
+}
+
+//convert from RGB color space to CIELAB color space, taken and adapted from pcl/registration/gicp6d
+Eigen::Vector3f RGB2Lab (const Eigen::Vector3f& colorRGB)
+{
+  // for sRGB   -> CIEXYZ see http://www.easyrgb.com/index.php?X=MATH&H=02#text2
+  // for CIEXYZ -> CIELAB see http://www.easyrgb.com/index.php?X=MATH&H=07#text7
+
+  double R, G, B, X, Y, Z;
+
+  R = colorRGB[0];
+  G = colorRGB[1];
+  B = colorRGB[2];
+
+  // linearize sRGB values
+  if (R > 0.04045)
+    R = pow ( (R + 0.055) / 1.055, 2.4);
+  else
+    R = R / 12.92;
+
+  if (G > 0.04045)
+    G = pow ( (G + 0.055) / 1.055, 2.4);
+  else
+    G = G / 12.92;
+
+  if (B > 0.04045)
+    B = pow ( (B + 0.055) / 1.055, 2.4);
+  else
+    B = B / 12.92;
+
+  // postponed:
+  //    R *= 100.0;
+  //    G *= 100.0;
+  //    B *= 100.0;
+
+  // linear sRGB -> CIEXYZ
+  X = R * 0.4124 + G * 0.3576 + B * 0.1805;
+  Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
+  Z = R * 0.0193 + G * 0.1192 + B * 0.9505;
+
+  // *= 100.0 including:
+  X /= 0.95047;  //95.047;
+  //    Y /= 1;//100.000;
+  Z /= 1.08883;  //108.883;
+
+  // CIEXYZ -> CIELAB
+  if (X > 0.008856)
+    X = pow (X, 1.0 / 3.0);
+  else
+    X = 7.787 * X + 16.0 / 116.0;
+
+  if (Y > 0.008856)
+    Y = pow (Y, 1.0 / 3.0);
+  else
+    Y = 7.787 * Y + 16.0 / 116.0;
+
+  if (Z > 0.008856)
+    Z = pow (Z, 1.0 / 3.0);
+  else
+    Z = 7.787 * Z + 16.0 / 116.0;
+
+  Eigen::Vector3f colorLab;
+  colorLab[0] = static_cast<float> (116.0 * Y - 16.0);
+  colorLab[1] = static_cast<float> (500.0 * (X - Y));
+  colorLab[2] = static_cast<float> (200.0 * (Y - Z));
+
+  return colorLab;
 }
