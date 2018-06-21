@@ -1,12 +1,9 @@
 #ifndef TASK_SIM_NIMBUS_BRIDGE_STATE_CALCULATOR_H_
 #define TASK_SIM_NIMBUS_BRIDGE_STATE_CALCULATOR_H_
 
-//#include <actionlib/client/simple_action_client.h>
 #include <ar_track_alvar_msgs/AlvarMarkers.h>
 #include <boost/thread/mutex.hpp>
 #include <Eigen/Core>
-//#include <pcl_ros/point_cloud.h>
-//#include <pcl/common/common.h>
 #include <rail_manipulation_msgs/SegmentedObjectList.h>
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
@@ -26,6 +23,7 @@ private:
   ros::Subscriber ar_subscriber;
   ros::Subscriber segmented_objects_subscriber;
   ros::Publisher state_publisher;
+  ros::Publisher recognized_objects_publisher;
 
   ros::ServiceClient segment_client;
   ros::ServiceClient classify_client;

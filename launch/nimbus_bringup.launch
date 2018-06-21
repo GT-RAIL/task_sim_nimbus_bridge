@@ -23,7 +23,7 @@
     <arg name="top" value="$(arg top)"/>
     <arg name="side" value="$(arg side)"/>
     <arg name="segmentation" value="$(arg segmentation)" />
-    <arg name="point_cloud_topic" value="$(arg segmentation_cloud)" />
+    <arg name="segmentation_cloud" value="$(arg segmentation_cloud)" />
     <arg name="use_color" value="$(arg use_color)" />
     <arg name="min_cluster_size" value="$(arg min_cluster_size)" />
     <arg name="max_cluster_size" value="$(arg max_cluster_size)" />

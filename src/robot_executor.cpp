@@ -8,8 +8,11 @@ RobotExecutor::RobotExecutor() : pn("~"),
                                  primitive_client("nimbus_moveit/primitive_action")
 {
   state_subscriber = n.subscribe("state_calculator_node/state", 1, &RobotExecutor::stateCallback, this);
+  recognized_objects_susbcriber =
+      n.subscribe("state_calculator_node/recognized_objects", 1, &RobotExecutor::itemsCallback, this);
 
   cartesian_path_client = n.serviceClient<rail_manipulation_msgs::CartesianPath>("nimbus_moveit/cartesian_path");
+  suggest_grasps_client = n.serviceClient<fetch_grasp_suggestion::SuggestGrasps>("suggester/suggest_grasps");
   execute_server = pn.advertiseService("execute_action", &RobotExecutor::executeCallback, this);
 }
 
@@ -18,13 +21,58 @@ void RobotExecutor::stateCallback(const task_sim::State &msg)
   state = msg;
 }
 
+void RobotExecutor::itemsCallback(const rail_manipulation_msgs::SegmentedObjectList &msg)
+{
+  items = msg;
+}
+
 bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::Execute::Response &res)
 {
   switch(req.action.action_type)
   {
     case task_sim::Action::GRASP:
     {
-      // TODO: Implement grasp
+      if (req.action.object == "apple" || req.action.object == "banana" || req.action.object == "carrot"
+          || req.action.object == "daikon")
+      {
+        int item_index = -1;
+        for (unsigned int i = 0; i < items.objects.size(); i ++)
+        {
+          if (items.objects[i].name == req.action.object)
+          {
+            item_index = i;
+            break;
+          }
+        }
+
+        if (item_index == -1)
+        {
+          ROS_INFO("Grasp target item is not currently seen by the perception system, cannot perform grasp.");
+          return false;
+        }
+
+        fetch_grasp_suggestion::SuggestGrasps grasp_suggestions;
+        grasp_suggestions.request.cloud = items.objects[item_index].point_cloud;
+        if (!suggest_grasps_client.call(grasp_suggestions))
+        {
+          ROS_INFO("Could not call grasp suggestion service.");
+          return false;
+        }
+        if (grasp_suggestions.response.grasp_list.poses.empty())
+        {
+          ROS_INFO("No grasps calculated!");
+          return false;
+        }
+        //TODO: rotate grasps 90 degrees due to inconsistency with coordinate frames between fetch and nimbus
+        geometry_msgs::PoseStamped grasp_pose;
+        grasp_pose.header = grasp_suggestions.response.grasp_list.header;
+        grasp_pose.pose = grasp_suggestions.response.grasp_list.poses[0];
+        //TODO: execute grasp
+      }
+      else
+      {
+        //TODO: implement grasp for drawer and lid
+      }
       break;
     }
 

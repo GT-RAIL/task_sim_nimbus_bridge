@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   ar_track_alvar_msgs
   cmake_modules
   eigen_conversions
+  fetch_grasp_suggestion
   geometry_msgs
   message_generation
   pcl_conversions
@@ -74,19 +75,32 @@ add_executable(
   nodes/controller_node.cpp
   src/controller.cpp
 )
+add_executable(
+  object_data_collector
+  nodes/object_data_collector.cpp
+  src/bounding_box_calculator.cpp
+)
 
 add_dependencies(
   robot_executor_node
   task_sim_generate_messages_cpp
+  rail_manipulation_msgs_generate_messages_cpp
+  fetch_grasp_suggestion_generate_messages_cpp
 )
 add_dependencies(
   state_calculator_node
   task_sim_generate_messages_cpp
   task_sim_nimbus_bridge_generate_messages_cpp
+  rail_manipulation_msgs_generate_messages_cpp
+  fetch_grasp_suggestion_generate_messages_cpp
 )
 add_dependencies(
   controller_node
   task_sim_generate_messages_cpp
+)
+add_dependencies(
+  object_data_collector
+  rail_manipulation_msgs_generate_messages_cpp
 )
 
 target_link_libraries(
@@ -102,6 +116,12 @@ target_link_libraries(
 target_link_libraries(
   controller_node
   ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  object_data_collector
+  ${boost_LIBRARIES}
+  ${catkin_LIBRARIES}
+  ${EIGEN_INCLUDE_DIRS}
 )
 
 #############

@@ -11,9 +11,11 @@ StateCalculator::StateCalculator() : pn("~")
   segmented_objects_subscriber = n.subscribe("rail_segmentation/segmented_objects", 1,
                                              &StateCalculator::segmentedObjectsCallback, this);
   state_publisher = pn.advertise<task_sim::State>("state", 1, this);
+  recognized_objects_publisher =
+      pn.advertise<rail_manipulation_msgs::SegmentedObjectList>("recognized_objects", 1, this);
 
   segment_client = n.serviceClient<std_srvs::Empty>("rail_segmentation/segment");
-  classify_client = n.serviceClient<task_sim_nimbus_bridge::Classify>("classifier/classify");
+  classify_client = n.serviceClient<task_sim_nimbus_bridge::Classify>("object_classifier/classify");
   state_server = pn.advertiseService("calculate_state", &StateCalculator::calculateStateCallback, this);
 }
 
@@ -111,7 +113,6 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
 
   for (unsigned int i = 0; i < msg.objects.size(); i ++)
   {
-    // TODO: implement classifier (classify_object.py, training infrastructure)
     // calculate features for recognition
     Eigen::Vector3f rgb, lab;
     rgb[0] = msg.objects[i].marker.color.r;
@@ -177,6 +178,7 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     }
   }
 
+  recognized_objects_publisher.publish(recognized_objects);
   segmented_objects_updated = true;
 }
 
