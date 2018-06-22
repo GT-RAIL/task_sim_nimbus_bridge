@@ -111,6 +111,7 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
 
   recognized_objects.objects.clear();
 
+  vector<string> updated;
   for (unsigned int i = 0; i < msg.objects.size(); i ++)
   {
     // calculate features for recognition
@@ -146,16 +147,27 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     }
 
     string label = classify.response.label;
+    // remap label to work with learned policy (uses fruits and vegetables...)
+    if (label == "apple")
+      label = "carrot";
+    else if (label == "banana")
+      label = "daikon";
+    else if (label == "marker")
+      label = "apple";
+    else if (label == "eraser")
+      label = "banana";
 
     if (label == "apple" or label == "banana" or label == "carrot" or label == "daikon")
     {
+      updated.push_back(label);
       bool object_updated = false;
       for (unsigned int j = 0; j < state.objects.size(); j ++)
       {
         if (state.objects[j].name == label)
         {
           state.objects[j].position = msg.objects[i].center;
-          // TODO: in_drawer, in_box, on_lid, on_stack, in_gripper, occluded, lost...
+          // don't worry about in_drawer, in_box, on_lid, on_stack, as they are calculated in the relation-based state
+          // TODO: in_gripper
 
           object_updated = true;
           break;
@@ -167,7 +179,8 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         item.name = label;
         item.unique_name = item.name;
         item.position = msg.objects[i].center;
-        // TODO: in_drawer, in_box, on_lid, on_stack, in_gripper, occluded, lost...
+        // don't worry about in_drawer, in_box, on_lid, on_stack, as they are calculated in the relation-based state
+        // TODO: in_gripper
 
         state.objects.push_back(item);
       }
@@ -175,6 +188,27 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
       recognized_objects.objects.push_back(msg.objects[i]);
       recognized_objects.objects[recognized_objects.objects.size() - 1].recognized = true;
       recognized_objects.objects[recognized_objects.objects.size() - 1].name = label;
+    }
+  }
+
+  for (unsigned int i = 0; i < state.objects.size(); i ++)
+  {
+    bool was_updated = false;
+    for (unsigned int j = 0; j < updated.size(); j ++)
+    {
+      if (state.objects[i].name == updated[j])
+      {
+        was_updated = true;
+        break;
+      }
+    }
+    if (!was_updated)
+    {
+      state.objects[i].occluded = true;
+    }
+    else
+    {
+      state.objects[i].occluded = false;
     }
   }
 
