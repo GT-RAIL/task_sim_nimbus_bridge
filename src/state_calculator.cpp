@@ -24,6 +24,13 @@ bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req,
   // segmentation updates (items)
   segmented_objects_updated = false;
 
+  std_srvs::Empty segment;
+  if (!segment_client.call(segment))
+  {
+    ROS_INFO("Couldn't call segmentation service.");
+    return false;
+  }
+
   ros::Time start = ros::Time::now();
   bool timeout = false;
   while (!segmented_objects_updated && !timeout)

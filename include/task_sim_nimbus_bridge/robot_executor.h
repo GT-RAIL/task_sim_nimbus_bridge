@@ -6,6 +6,8 @@
 #include <rail_manipulation_msgs/ArmAction.h>
 #include <rail_manipulation_msgs/CartesianPath.h>
 #include <rail_manipulation_msgs/GripperAction.h>
+#include <rail_manipulation_msgs/MoveToPoseAction.h>
+#include <rail_manipulation_msgs/PickupAction.h>
 #include <rail_manipulation_msgs/PrimitiveAction.h>
 #include <rail_manipulation_msgs/SegmentedObjectList.h>
 #include <ros/ros.h>
@@ -13,6 +15,7 @@
 #include <task_sim/Execute.h>
 #include <task_sim/State.h>
 #include <tf/transform_listener.h>
+#include <tf/transform_datatypes.h>
 
 class RobotExecutor
 {
@@ -31,7 +34,9 @@ private:
 
   actionlib::SimpleActionClient<rail_manipulation_msgs::ArmAction> arm_client;
   actionlib::SimpleActionClient<rail_manipulation_msgs::GripperAction> gripper_client;
+  actionlib::SimpleActionClient<rail_manipulation_msgs::MoveToPoseAction> move_to_pose_client;
   actionlib::SimpleActionClient<rail_manipulation_msgs::PrimitiveAction> primitive_client;
+  actionlib::SimpleActionClient<rail_manipulation_msgs::PickupAction> grasp_client;
 
   tf::TransformListener tf_listener;
 
