@@ -5,6 +5,9 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "controller_node");
   Controller c;
 
+  ros::spinOnce();
+  c.calculateState();
+
   ros::spin();
 
   return EXIT_SUCCESS;

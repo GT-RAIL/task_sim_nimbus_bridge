@@ -32,11 +32,13 @@ add_message_files(
 add_service_files(
   FILES
   Classify.srv
+  UpdateState.srv
 )
 
 generate_messages(
   DEPENDENCIES
   geometry_msgs
+  task_sim
 )
 
 catkin_package(

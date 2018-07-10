@@ -17,6 +17,7 @@ StateCalculator::StateCalculator() : pn("~")
   segment_client = n.serviceClient<std_srvs::Empty>("rail_segmentation/segment");
   classify_client = n.serviceClient<task_sim_nimbus_bridge::Classify>("object_classifier/classify");
   state_server = pn.advertiseService("calculate_state", &StateCalculator::calculateStateCallback, this);
+  update_state_server = pn.advertiseService("update_state", &StateCalculator::updateStateCallback, this);
 }
 
 bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req, task_sim::QueryState::Response &res)
@@ -67,7 +68,7 @@ bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req,
   state.gripper_position.y = gripper_transform.getOrigin().y();
   state.gripper_position.z = gripper_transform.getOrigin().z();
 
-  // TODO: gripper_open
+  // TODO: gripper_open (use gripper joint states or the tf tree)
 
   res.state = state;
 
@@ -174,7 +175,7 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         {
           state.objects[j].position = msg.objects[i].center;
           // don't worry about in_drawer, in_box, on_lid, on_stack, as they are calculated in the relation-based state
-          // TODO: in_gripper
+          // in_gripper handled at higher level
 
           object_updated = true;
           break;
@@ -187,7 +188,7 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         item.unique_name = item.name;
         item.position = msg.objects[i].center;
         // don't worry about in_drawer, in_box, on_lid, on_stack, as they are calculated in the relation-based state
-        // TODO: in_gripper
+        // in_gripper handled at higher level
 
         state.objects.push_back(item);
       }
@@ -221,6 +222,13 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
 
   recognized_objects_publisher.publish(recognized_objects);
   segmented_objects_updated = true;
+}
+
+bool StateCalculator::updateStateCallback(task_sim_nimbus_bridge::UpdateState::Request &req,
+    task_sim_nimbus_bridge::UpdateState::Response &res)
+{
+  state = req.state;
+  return true;
 }
 
 //convert from RGB color space to CIELAB color space, taken and adapted from pcl/registration/gicp6d

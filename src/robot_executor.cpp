@@ -108,8 +108,6 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       }
       else if (req.action.object == "drawer")
       {
-        //TODO: implement grasp for drawer and lid
-
         /* table_base_link to nimbus_ee_link:
          * - Translation: [-0.254, 0.616, 0.218]
            - Rotation: in Quaternion [-0.017, -0.008, 1.000, -0.006]
@@ -177,14 +175,16 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       // TODO: Implement place
       if (req.action.object == "drawer")
       {
-
+        //TODO: check measurement for drawer offset
+        place_pose.pose.position.x = state.drawer_position.x + state.drawer_opening/2.0 + .165;
+        place_pose.pose.position.y = state.drawer_position.y;
+        place_pose.pose.position.z = 0; // TODO: measure drawer height, change this
       }
       else if (req.action.object == "stack")
       {
         place_pose.pose.position.x = state.drawer_position.x;
         place_pose.pose.position.y = state.drawer_position.y;
-        place_pose.pose.position.z = 0; // TODO: measure and change this
-
+        place_pose.pose.position.z = 0; // TODO: measure stack height, change this
       }
       else if (req.action.object == "box")
       {

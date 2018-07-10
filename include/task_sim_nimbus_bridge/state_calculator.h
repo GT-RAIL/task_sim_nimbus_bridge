@@ -10,6 +10,7 @@
 #include <task_sim/QueryState.h>
 #include <task_sim/State.h>
 #include <task_sim_nimbus_bridge/Classify.h>
+#include <task_sim_nimbus_bridge/UpdateState.h>
 #include <tf/transform_listener.h>
 
 class StateCalculator
@@ -28,6 +29,7 @@ private:
   ros::ServiceClient segment_client;
   ros::ServiceClient classify_client;
   ros::ServiceServer state_server;
+  ros::ServiceServer update_state_server;
 
   tf::TransformListener tf_listener;
 
@@ -48,6 +50,9 @@ private:
   void segmentedObjectsCallback(const rail_manipulation_msgs::SegmentedObjectList &msg);
 
   bool calculateStateCallback(task_sim::QueryState::Request &req, task_sim::QueryState::Response &res);
+
+  bool updateStateCallback(task_sim_nimbus_bridge::UpdateState::Request &req,
+      task_sim_nimbus_bridge::UpdateState::Response &res);
 };
 
 Eigen::Vector3f RGB2Lab (const Eigen::Vector3f& colorRGB);
