@@ -60,7 +60,7 @@ bool Controller::executeCallback(task_sim::Execute::Request &req, task_sim::Exec
           {
             state.objects[i].position.x = state.gripper_position.x;
             state.objects[i].position.y = state.gripper_position.y;
-            state.objects[i].position.z = state.gripper_position.z - 0.05;
+            state.objects[i].position.z = state.gripper_position.z - 0.12;
             state.objects[i].in_gripper = false;
             break;
           }

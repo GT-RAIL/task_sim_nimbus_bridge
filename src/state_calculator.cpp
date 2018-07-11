@@ -149,7 +149,6 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
 
     if (not classify_client.call(classify))
     {
-      ROS_INFO("Could not call object classifier.");
       segmented_objects_updated = true;
       return;
     }
@@ -160,10 +159,12 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
       label = "carrot";
     else if (label == "banana")
       label = "daikon";
-    else if (label == "marker")
+    else if (label == "tape")
       label = "apple";
-    else if (label == "eraser")
+    else if (label == "marker")
+    {
       label = "banana";
+    }
 
     if (label == "apple" or label == "banana" or label == "carrot" or label == "daikon")
     {
@@ -191,6 +192,7 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         // in_gripper handled at higher level
 
         state.objects.push_back(item);
+        ROS_INFO("!!!Pushed banana object to item list!!!");
       }
 
       recognized_objects.objects.push_back(msg.objects[i]);
@@ -228,6 +230,9 @@ bool StateCalculator::updateStateCallback(task_sim_nimbus_bridge::UpdateState::R
     task_sim_nimbus_bridge::UpdateState::Response &res)
 {
   state = req.state;
+
+  state_publisher.publish(state);
+
   return true;
 }
 

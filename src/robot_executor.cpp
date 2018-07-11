@@ -172,19 +172,17 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       tf_listener.lookupTransform("nimbus_ee_link", "table_base_link", ros::Time(0), ee_transform);
       tf::quaternionTFToMsg(ee_transform.getRotation(), place_pose.pose.orientation);
 
-      // TODO: Implement place
       if (req.action.object == "drawer")
       {
-        //TODO: check measurement for drawer offset
         place_pose.pose.position.x = state.drawer_position.x + state.drawer_opening/2.0 + .165;
         place_pose.pose.position.y = state.drawer_position.y;
-        place_pose.pose.position.z = 0; // TODO: measure drawer height, change this
+        place_pose.pose.position.z = .33;
       }
       else if (req.action.object == "stack")
       {
         place_pose.pose.position.x = state.drawer_position.x;
         place_pose.pose.position.y = state.drawer_position.y;
-        place_pose.pose.position.z = 0; // TODO: measure stack height, change this
+        place_pose.pose.position.z = .355;
       }
       else if (req.action.object == "box")
       {
