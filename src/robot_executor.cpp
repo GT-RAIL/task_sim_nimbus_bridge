@@ -108,18 +108,6 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       }
       else if (req.action.object == "drawer")
       {
-        /* table_base_link to nimbus_ee_link:
-         * - Translation: [-0.254, 0.616, 0.218]
-           - Rotation: in Quaternion [-0.017, -0.008, 1.000, -0.006]
-             in RPY (radian) [-0.016, 0.033, -3.129]
-             in RPY (degree) [-0.910, 1.919, -179.284]
-
-           drawer_position:
-            x: -0.451086260308
-            y: 0.641136275407
-            theta: 0.0
-         */
-
         //open gripper
         rail_manipulation_msgs::GripperGoal open_goal;
         open_goal.close = false;
@@ -145,15 +133,36 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
         grasp_client.sendGoal(grasp_goal);
         grasp_client.waitForResult(ros::Duration(40));
         rail_manipulation_msgs::PickupResultConstPtr grasp_result = grasp_client.getResult();
-        if (grasp_result->executionSuccess)
-        {
-          return grasp_result->success;
-        }
+        return grasp_result->success;
       }
       else if (req.action.object == "lid")
       {
-        //TODO: implement grasp for lid
+        //open gripper
+        rail_manipulation_msgs::GripperGoal open_goal;
+        open_goal.close = false;
+        gripper_client.sendGoal(open_goal);
+        gripper_client.waitForResult(ros::Duration(10.0));
 
+        geometry_msgs::PoseStamped handle_pose;
+        handle_pose.header.frame_id = "ar_marker_3";
+        handle_pose.pose.position.x = -0.09;
+        handle_pose.pose.position.y = 0.02;
+        handle_pose.pose.position.z = 0.029;
+        handle_pose.pose.orientation.x = -0.537;
+        handle_pose.pose.orientation.y = 0.469;
+        handle_pose.pose.orientation.z = 0.338;
+        handle_pose.pose.orientation.w = 0.615;
+
+        rail_manipulation_msgs::PickupGoal grasp_goal;
+        grasp_goal.attachObject = false;
+        grasp_goal.lift = false;
+        grasp_goal.verify = false;
+        grasp_goal.pose = handle_pose;
+
+        grasp_client.sendGoal(grasp_goal);
+        grasp_client.waitForResult(ros::Duration(40));
+        rail_manipulation_msgs::PickupResultConstPtr grasp_result = grasp_client.getResult();
+        return grasp_result->success;
       }
       else
       {
@@ -186,12 +195,26 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       }
       else if (req.action.object == "box")
       {
-        //TODO
+        place_pose.pose.position.x = state.box_position.x;
+        place_pose.pose.position.y = state.box_position.y;
+        place_pose.pose.position.z = .3;
+
+        if (state.object_in_gripper == "daikon")
+        {
+          // rotate pose by 90 degrees so the long object fits into the box consistently
+          tf::Quaternion r = tf::createQuaternionFromRPY(0, M_PI_2, 0);
+          tf::Quaternion q;
+          tf::quaternionMsgToTF(place_pose.pose.orientation, q);
+          tf::quaternionTFToMsg((r*q).normalize(), place_pose.pose.orientation);
+        }
+
         return false;
       }
       else if (req.action.object == "lid")
       {
-        //TODO
+        place_pose.pose.position.x = state.lid_position.x;
+        place_pose.pose.position.y = state.lid_position.y - 0.05;
+        place_pose.pose.position.z = state.lid_position.z + 0.15;
         return false;
       }
       else

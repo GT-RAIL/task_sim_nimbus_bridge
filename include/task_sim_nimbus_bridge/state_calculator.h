@@ -6,6 +6,7 @@
 #include <Eigen/Core>
 #include <rail_manipulation_msgs/SegmentedObjectList.h>
 #include <ros/ros.h>
+#include <sensor_msgs/JointState.h>
 #include <std_srvs/Empty.h>
 #include <task_sim/QueryState.h>
 #include <task_sim/State.h>
@@ -23,6 +24,7 @@ private:
 
   ros::Subscriber ar_subscriber;
   ros::Subscriber segmented_objects_subscriber;
+  ros::Subscriber gripper_state_subscriber;
   ros::Publisher state_publisher;
   ros::Publisher recognized_objects_publisher;
 
@@ -37,6 +39,8 @@ private:
 
   geometry_msgs::PoseStamped drawer_pose;
   geometry_msgs::PoseStamped stack_pose;
+  geometry_msgs::PoseStamped lid_pose;
+  geometry_msgs::PoseStamped box_pose;
 
   rail_manipulation_msgs::SegmentedObjectList segmented_objects;
   rail_manipulation_msgs::SegmentedObjectList recognized_objects;
@@ -48,6 +52,8 @@ private:
   void arCallback(const ar_track_alvar_msgs::AlvarMarkers &msg);
 
   void segmentedObjectsCallback(const rail_manipulation_msgs::SegmentedObjectList &msg);
+
+  void gripperStateCallback(const sensor_msgs::JointState &msg);
 
   bool calculateStateCallback(task_sim::QueryState::Request &req, task_sim::QueryState::Response &res);
 

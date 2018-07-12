@@ -10,6 +10,7 @@ StateCalculator::StateCalculator() : pn("~")
   ar_subscriber = n.subscribe("ar_pose_marker", 1, &StateCalculator::arCallback, this);
   segmented_objects_subscriber = n.subscribe("rail_segmentation/segmented_objects", 1,
                                              &StateCalculator::segmentedObjectsCallback, this);
+  gripper_state_subscriber = n.subscribe("gripper/joint_states", 1, &StateCalculator::gripperStateCallback, this);
   state_publisher = pn.advertise<task_sim::State>("state", 1, this);
   recognized_objects_publisher =
       pn.advertise<rail_manipulation_msgs::SegmentedObjectList>("recognized_objects", 1, this);
@@ -18,6 +19,12 @@ StateCalculator::StateCalculator() : pn("~")
   classify_client = n.serviceClient<task_sim_nimbus_bridge::Classify>("object_classifier/classify");
   state_server = pn.advertiseService("calculate_state", &StateCalculator::calculateStateCallback, this);
   update_state_server = pn.advertiseService("update_state", &StateCalculator::updateStateCallback, this);
+}
+
+void StateCalculator::gripperStateCallback(const sensor_msgs::JointState &msg)
+{
+  if (!msg.position.empty())
+    state.gripper_open = msg.position[0] < 0.05;
 }
 
 bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req, task_sim::QueryState::Response &res)
@@ -107,6 +114,30 @@ void StateCalculator::arCallback(const ar_track_alvar_msgs::AlvarMarkers &msg)
       drawer_pose.pose.position.y += 0.085;
       drawer_pose.pose.position.z += 0.025;
     }
+    else if (msg.markers[i].id == 2)
+    {
+      // box position
+      geometry_msgs::PoseStamped marker_pose = msg.markers[i].pose;
+      marker_pose.header.frame_id = msg.markers[i].header.frame_id;
+      tf_listener.transformPose("table_base_link", ros::Time(0), marker_pose, "table_base_link", box_pose);
+      box_pose.header.frame_id = "table_base_link";
+
+      box_pose.pose.position.x -= 0.133;
+      box_pose.pose.position.y += 0;
+      box_pose.pose.position.z -= 0.038;
+    }
+    else if (msg.markers[i].id == 3)
+    {
+      // lid position
+      geometry_msgs::PoseStamped marker_pose = msg.markers[i].pose;
+      marker_pose.header.frame_id = msg.markers[i].header.frame_id;
+      // TODO: adjust lid pose locally for marker offset
+      marker_pose.pose.position.x -= 0.095;
+      marker_pose.pose.position.y += 0;
+      marker_pose.pose.position.z -= 0.0381;
+      tf_listener.transformPose("table_base_link", ros::Time(0), marker_pose, "table_base_link", lid_pose);
+      lid_pose.header.frame_id = "table_base_link";
+    }
   }
 }
 
@@ -192,7 +223,6 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         // in_gripper handled at higher level
 
         state.objects.push_back(item);
-        ROS_INFO("!!!Pushed banana object to item list!!!");
       }
 
       recognized_objects.objects.push_back(msg.objects[i]);
