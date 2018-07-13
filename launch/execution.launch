@@ -1,0 +1,15 @@
+<launch>
+    <!-- alvar args -->
+    <arg name="marker_size" default="6.5" />
+    <arg name="max_new_marker_error" default="0.08" />
+    <arg name="max_track_error" default="0.2" />
+    <arg name="cam_image_topic" default="/camera_side/depth_registered/points" />
+    <arg name="cam_info_topic" default="/camera_side/rgb/camera_info" />
+    <arg name="output_frame" default="camera_link" />
+
+    <node name="primitive_actions" pkg="nimbus_moveit_config" type="primitive_actions" respawn="false" output="screen" />
+
+    <node name="robot_executor_node" pkg="task_sim_nimbus_bridge" type="robot_executor_node" respawn="false" output="screen" />
+
+    <node name="controller_node" pkg="task_sim_nimbus_bridge" type="controller_node" respawn="false" output="screen" />
+</launch>

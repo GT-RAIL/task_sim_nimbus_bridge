@@ -137,22 +137,25 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       }
       else if (req.action.object == "lid")
       {
+        ROS_INFO("1");
         //open gripper
         rail_manipulation_msgs::GripperGoal open_goal;
         open_goal.close = false;
         gripper_client.sendGoal(open_goal);
         gripper_client.waitForResult(ros::Duration(10.0));
 
+        ROS_INFO("2");
         geometry_msgs::PoseStamped handle_pose;
         handle_pose.header.frame_id = "ar_marker_3";
-        handle_pose.pose.position.x = -0.09;
+        handle_pose.pose.position.x = -0.02;
         handle_pose.pose.position.y = 0.02;
-        handle_pose.pose.position.z = 0.029;
-        handle_pose.pose.orientation.x = -0.537;
-        handle_pose.pose.orientation.y = 0.469;
-        handle_pose.pose.orientation.z = 0.338;
-        handle_pose.pose.orientation.w = 0.615;
+        handle_pose.pose.position.z = -0.048;
+        handle_pose.pose.orientation.x = -0.693;
+        handle_pose.pose.orientation.y = 0.0;
+        handle_pose.pose.orientation.z = -0.053;
+        handle_pose.pose.orientation.w = 0.719;
 
+        ROS_INFO("3");
         rail_manipulation_msgs::PickupGoal grasp_goal;
         grasp_goal.attachObject = false;
         grasp_goal.lift = false;
@@ -162,6 +165,7 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
         grasp_client.sendGoal(grasp_goal);
         grasp_client.waitForResult(ros::Duration(40));
         rail_manipulation_msgs::PickupResultConstPtr grasp_result = grasp_client.getResult();
+        ROS_INFO("4");
         return grasp_result->success;
       }
       else

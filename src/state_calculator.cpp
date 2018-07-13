@@ -65,7 +65,13 @@ bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req,
       state.drawer_opening = 0;
     }
 
-    // TODO: box_position, lid_position
+    state.box_position.x = box_pose.pose.position.x;
+    state.box_position.y = box_pose.pose.position.y;
+
+    // TODO: switch lid_position to use segmented/recognized objects
+//    state.lid_position.x = lid_pose.pose.position.x;
+//    state.lid_position.y = lid_pose.pose.position.y;
+//    state.lid_position.z = lid_pose.pose.position.z;
   }
 
   // Robot update
@@ -74,8 +80,6 @@ bool StateCalculator::calculateStateCallback(task_sim::QueryState::Request &req,
   state.gripper_position.x = gripper_transform.getOrigin().x();
   state.gripper_position.y = gripper_transform.getOrigin().y();
   state.gripper_position.z = gripper_transform.getOrigin().z();
-
-  // TODO: gripper_open (use gripper joint states or the tf tree)
 
   res.state = state;
 
@@ -126,18 +130,17 @@ void StateCalculator::arCallback(const ar_track_alvar_msgs::AlvarMarkers &msg)
       box_pose.pose.position.y += 0;
       box_pose.pose.position.z -= 0.038;
     }
-    else if (msg.markers[i].id == 3)
-    {
-      // lid position
-      geometry_msgs::PoseStamped marker_pose = msg.markers[i].pose;
-      marker_pose.header.frame_id = msg.markers[i].header.frame_id;
-      // TODO: adjust lid pose locally for marker offset
-      marker_pose.pose.position.x -= 0.095;
-      marker_pose.pose.position.y += 0;
-      marker_pose.pose.position.z -= 0.0381;
-      tf_listener.transformPose("table_base_link", ros::Time(0), marker_pose, "table_base_link", lid_pose);
-      lid_pose.header.frame_id = "table_base_link";
-    }
+//    else if (msg.markers[i].id == 3)
+//    {
+//      //TODO: move lid position to segmentation/recognition
+//      geometry_msgs::PoseStamped marker_pose = msg.markers[i].pose;
+//      marker_pose.header.frame_id = msg.markers[i].header.frame_id;
+//      marker_pose.pose.position.x -= 0.095;
+//      marker_pose.pose.position.y += 0;
+//      marker_pose.pose.position.z -= 0.0381;
+//      tf_listener.transformPose("table_base_link", ros::Time(0), marker_pose, "table_base_link", lid_pose);
+//      lid_pose.header.frame_id = "table_base_link";
+//    }
   }
 }
 

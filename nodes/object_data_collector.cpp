@@ -44,6 +44,7 @@ void ObjectDataCollector::showObject(unsigned int index)
 
   //sort from least to greatest
   // vector<float> dims;
+  dims.clear();
   dims.push_back(box.dimensions.x);
   dims.push_back(box.dimensions.y);
   sort(dims.begin(), dims.end());

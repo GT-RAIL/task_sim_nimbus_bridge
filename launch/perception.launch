@@ -21,6 +21,9 @@
     <!-- Object recognition -->
     <node name="object_classifier" pkg="task_sim_nimbus_bridge" type="classify_object.py" output="screen" />
 
+    <!-- Grasp calculation -->
+    <include file="$(find fetch_grasp_suggestion)/launch/grasp_suggestion.launch" />
+
     <!-- State calculation -->
     <node name="state_calculator_node" pkg="task_sim_nimbus_bridge" type="state_calculator_node" output="screen" />
 </launch>
