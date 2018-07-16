@@ -3,6 +3,7 @@
 
 #include <actionlib/client/simple_action_client.h>
 #include <fetch_grasp_suggestion/SuggestGrasps.h>
+#include <kinova_msgs/JointVelocity.h>
 #include <rail_manipulation_msgs/ArmAction.h>
 #include <rail_manipulation_msgs/CartesianPath.h>
 #include <rail_manipulation_msgs/GripperAction.h>
@@ -27,6 +28,9 @@ private:
 
   ros::Subscriber state_subscriber;
   ros::Subscriber recognized_objects_susbcriber;
+
+  ros::Publisher pose_debug_publisher;
+  ros::Publisher joint_cmd_publisher;
 
   ros::ServiceClient cartesian_path_client;
   ros::ServiceClient suggest_grasps_client;

@@ -13,6 +13,9 @@ RobotExecutor::RobotExecutor() : pn("~"),
   recognized_objects_susbcriber =
       n.subscribe("state_calculator_node/recognized_objects", 1, &RobotExecutor::itemsCallback, this);
 
+  pose_debug_publisher = n.advertise<geometry_msgs::PoseStamped>("place_pose_debug", 1, this);
+  joint_cmd_publisher = n.advertise<kinova_msgs::JointVelocity>("j2s7s300_driver/in/joint_velocity", 1, this);
+
   cartesian_path_client = n.serviceClient<rail_manipulation_msgs::CartesianPath>("nimbus_moveit/cartesian_path");
   suggest_grasps_client = n.serviceClient<fetch_grasp_suggestion::SuggestGrasps>("suggester/suggest_grasps");
   execute_server = pn.advertiseService("execute_action", &RobotExecutor::executeCallback, this);
@@ -35,7 +38,7 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
     case task_sim::Action::GRASP:
     {
       if (req.action.object == "apple" || req.action.object == "banana" || req.action.object == "carrot"
-          || req.action.object == "daikon")
+          || req.action.object == "daikon" || req.action.object == "lid")
       {
         int item_index = -1;
         for (unsigned int i = 0; i < items.objects.size(); i ++)
@@ -135,39 +138,35 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
         rail_manipulation_msgs::PickupResultConstPtr grasp_result = grasp_client.getResult();
         return grasp_result->success;
       }
-      else if (req.action.object == "lid")
-      {
-        ROS_INFO("1");
-        //open gripper
-        rail_manipulation_msgs::GripperGoal open_goal;
-        open_goal.close = false;
-        gripper_client.sendGoal(open_goal);
-        gripper_client.waitForResult(ros::Duration(10.0));
-
-        ROS_INFO("2");
-        geometry_msgs::PoseStamped handle_pose;
-        handle_pose.header.frame_id = "ar_marker_3";
-        handle_pose.pose.position.x = -0.02;
-        handle_pose.pose.position.y = 0.02;
-        handle_pose.pose.position.z = -0.048;
-        handle_pose.pose.orientation.x = -0.693;
-        handle_pose.pose.orientation.y = 0.0;
-        handle_pose.pose.orientation.z = -0.053;
-        handle_pose.pose.orientation.w = 0.719;
-
-        ROS_INFO("3");
-        rail_manipulation_msgs::PickupGoal grasp_goal;
-        grasp_goal.attachObject = false;
-        grasp_goal.lift = false;
-        grasp_goal.verify = false;
-        grasp_goal.pose = handle_pose;
-
-        grasp_client.sendGoal(grasp_goal);
-        grasp_client.waitForResult(ros::Duration(40));
-        rail_manipulation_msgs::PickupResultConstPtr grasp_result = grasp_client.getResult();
-        ROS_INFO("4");
-        return grasp_result->success;
-      }
+//      else if (req.action.object == "lid")
+//      {
+//        //open gripper
+//        rail_manipulation_msgs::GripperGoal open_goal;
+//        open_goal.close = false;
+//        gripper_client.sendGoal(open_goal);
+//        gripper_client.waitForResult(ros::Duration(10.0));
+//
+//        geometry_msgs::PoseStamped handle_pose;
+//        handle_pose.header.frame_id = "ar_marker_3";
+//        handle_pose.pose.position.x = -0.02;
+//        handle_pose.pose.position.y = 0.02;
+//        handle_pose.pose.position.z = -0.048;
+//        handle_pose.pose.orientation.x = -0.693;
+//        handle_pose.pose.orientation.y = 0.0;
+//        handle_pose.pose.orientation.z = -0.053;
+//        handle_pose.pose.orientation.w = 0.719;
+//
+//        rail_manipulation_msgs::PickupGoal grasp_goal;
+//        grasp_goal.attachObject = false;
+//        grasp_goal.lift = false;
+//        grasp_goal.verify = false;
+//        grasp_goal.pose = handle_pose;
+//
+//        grasp_client.sendGoal(grasp_goal);
+//        grasp_client.waitForResult(ros::Duration(40));
+//        rail_manipulation_msgs::PickupResultConstPtr grasp_result = grasp_client.getResult();
+//        return grasp_result->success;
+//      }
       else
       {
         ROS_INFO("Not a graspable object!");
@@ -178,11 +177,14 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
 
     case task_sim::Action::PLACE:
     {
+      vector<geometry_msgs::PoseStamped> place_poses;
+      place_poses.clear();
+
       geometry_msgs::PoseStamped place_pose;
       place_pose.header.frame_id = "table_base_link";
 
       tf::StampedTransform ee_transform;
-      tf_listener.lookupTransform("nimbus_ee_link", "table_base_link", ros::Time(0), ee_transform);
+      tf_listener.lookupTransform("table_base_link", "nimbus_ee_link", ros::Time(0), ee_transform);
       tf::quaternionTFToMsg(ee_transform.getRotation(), place_pose.pose.orientation);
 
       if (req.action.object == "drawer")
@@ -190,12 +192,24 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
         place_pose.pose.position.x = state.drawer_position.x + state.drawer_opening/2.0 + .165;
         place_pose.pose.position.y = state.drawer_position.y;
         place_pose.pose.position.z = .33;
+        place_poses.push_back(place_pose);
       }
       else if (req.action.object == "stack")
       {
         place_pose.pose.position.x = state.drawer_position.x;
         place_pose.pose.position.y = state.drawer_position.y;
         place_pose.pose.position.z = .355;
+        place_poses.push_back(place_pose);
+
+        place_pose.pose.position.x = state.drawer_position.x + 0.05;
+        place_pose.pose.position.y = state.drawer_position.y;
+        place_pose.pose.position.z = .355;
+        place_poses.push_back(place_pose);
+
+        place_pose.pose.position.x = state.drawer_position.x - 0.05;
+        place_pose.pose.position.y = state.drawer_position.y;
+        place_pose.pose.position.z = .355;
+        place_poses.push_back(place_pose);
       }
       else if (req.action.object == "box")
       {
@@ -205,33 +219,66 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
 
         if (state.object_in_gripper == "daikon")
         {
+          place_pose.pose.position.z += .1;
+
           // rotate pose by 90 degrees so the long object fits into the box consistently
-          tf::Quaternion r = tf::createQuaternionFromRPY(0, M_PI_2, 0);
           tf::Quaternion q;
           tf::quaternionMsgToTF(place_pose.pose.orientation, q);
-          tf::quaternionTFToMsg((r*q).normalize(), place_pose.pose.orientation);
-        }
 
-        return false;
+          tf::Quaternion r = tf::createQuaternionFromRPY(0, 0, M_PI_2);
+          tf::quaternionTFToMsg((r*q).normalize(), place_pose.pose.orientation);
+          place_poses.push_back(place_pose);
+
+          r = tf::createQuaternionFromRPY(0, 0, -M_PI_2);
+          tf::quaternionTFToMsg((r*q).normalize(), place_pose.pose.orientation);
+          place_poses.push_back(place_pose);
+
+          r = tf::createQuaternionFromRPY(0, M_PI_2, 0);
+          tf::quaternionTFToMsg((r*q).normalize(), place_pose.pose.orientation);
+          place_poses.push_back(place_pose);
+
+          r = tf::createQuaternionFromRPY(0, -M_PI_2, 0);
+          tf::quaternionTFToMsg((r*q).normalize(), place_pose.pose.orientation);
+          place_poses.push_back(place_pose);
+        }
+        else
+        {
+          place_poses.push_back(place_pose);
+        }
       }
       else if (req.action.object == "lid")
       {
         place_pose.pose.position.x = state.lid_position.x;
         place_pose.pose.position.y = state.lid_position.y - 0.05;
         place_pose.pose.position.z = state.lid_position.z + 0.15;
-        return false;
+        place_poses.push_back(place_pose);
       }
       else
       {
         //TODO: Implement place on table
         return false;
       }
-      rail_manipulation_msgs::MoveToPoseGoal approachAngleGoal;
-      approachAngleGoal.pose = place_pose;
-      approachAngleGoal.planningTime = 3.0;
-      move_to_pose_client.sendGoal(approachAngleGoal);
-      move_to_pose_client.waitForResult(ros::Duration(30.0));
-      if (!move_to_pose_client.getResult()->success)
+
+      bool success = false;
+      for (size_t i = 0; i < place_poses.size(); i ++)
+      {
+        ROS_INFO("Attempting place pose %lu", i);
+
+        pose_debug_publisher.publish(place_poses[i]);
+
+        rail_manipulation_msgs::MoveToPoseGoal approachAngleGoal;
+        approachAngleGoal.pose = place_poses[i];
+        approachAngleGoal.planningTime = 3.0;
+        move_to_pose_client.sendGoal(approachAngleGoal);
+        move_to_pose_client.waitForResult(ros::Duration(30.0));
+        if (move_to_pose_client.getResult()->success)
+        {
+          success = true;
+          break;
+        }
+      }
+
+      if (!success)
       {
         ROS_INFO("Could not move to place pose.");
         return false;
@@ -241,6 +288,19 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       open_goal.close = false;
       gripper_client.sendGoal(open_goal);
       gripper_client.waitForResult(ros::Duration(10.0));
+
+      // spin for robust dislodging
+      ros::Time start = ros::Time::now();
+      ros::Rate rate(100);
+      kinova_msgs::JointVelocity wrist_spin;
+      wrist_spin.joint7 = 25.0;
+      while (ros::Time::now().toSec() - start.toSec() < 4)
+      {
+        joint_cmd_publisher.publish(wrist_spin);
+        rate.sleep();
+      }
+      wrist_spin.joint7 = 0.0;
+      joint_cmd_publisher.publish(wrist_spin);
 
       return true;
     }
@@ -375,7 +435,7 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       raise_goal.axis = rail_manipulation_msgs::PrimitiveGoal::Z_AXIS;
       raise_goal.distance = 0.2;
       primitive_client.sendGoal(raise_goal);
-      primitive_client.waitForResult(ros::Duration(5.0));
+      primitive_client.waitForResult(ros::Duration(10.0));
       return primitive_client.getResult()->completion > 0;
     }
 
@@ -386,7 +446,7 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       lower_goal.axis = rail_manipulation_msgs::PrimitiveGoal::Z_AXIS;
       lower_goal.distance = -0.2;
       primitive_client.sendGoal(lower_goal);
-      primitive_client.waitForResult(ros::Duration(5.0));
+      primitive_client.waitForResult(ros::Duration(10.0));
       return primitive_client.getResult()->completion > 0;
     }
 
@@ -395,7 +455,7 @@ bool RobotExecutor::executeCallback(task_sim::Execute::Request &req, task_sim::E
       rail_manipulation_msgs::ArmGoal reset_goal;
       reset_goal.action = rail_manipulation_msgs::ArmGoal::READY;
       arm_client.sendGoal(reset_goal);
-      arm_client.waitForResult(ros::Duration(20.0));
+      arm_client.waitForResult(ros::Duration(30.0));
       return arm_client.getResult()->success;
     }
 

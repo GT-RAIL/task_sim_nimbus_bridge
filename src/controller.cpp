@@ -56,11 +56,20 @@ bool Controller::executeCallback(task_sim::Execute::Request &req, task_sim::Exec
       {
         for (unsigned int i = 0; i < state.objects.size(); i ++)
         {
-          if (req.action.object == state.objects[i].name)
+          if (state.object_in_gripper == state.objects[i].name)
           {
+            // TODO: Update place position for daikon in box (or other things in box for longer fall?)
             state.objects[i].position.x = state.gripper_position.x;
             state.objects[i].position.y = state.gripper_position.y;
             state.objects[i].position.z = state.gripper_position.z - 0.12;
+            if (state.object_in_gripper == "daikon" && req.action.object == "box")
+            {
+              state.objects[i].position.z -= 0.1;
+            }
+            if (req.action.object == "box")
+            {
+              state.objects[i].position.z -= 0.1;
+            }
             state.objects[i].in_gripper = false;
             break;
           }
@@ -78,7 +87,7 @@ bool Controller::executeCallback(task_sim::Execute::Request &req, task_sim::Exec
       {
         for (unsigned int i = 0; i < state.objects.size(); i ++)
         {
-          if (req.action.object == state.objects[i].name)
+          if (state.object_in_gripper == state.objects[i].name)
           {
             state.objects[i].position.x = state.gripper_position.x;
             state.objects[i].position.y = state.gripper_position.y;

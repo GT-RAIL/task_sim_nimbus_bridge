@@ -47,6 +47,7 @@ private:
 
   ros::Subscriber newDataSubscriber;
   ros::Publisher currentObjectPublisher;
+  ros::Publisher box_pose_publisher;
 
   rail_manipulation_msgs::SegmentedObjectList objects;
   unsigned int index;

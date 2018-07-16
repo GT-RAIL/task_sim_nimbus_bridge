@@ -7,7 +7,7 @@
   <!-- Segmentation Params -->
   <arg name="segmentation" default="true" />
   <arg name="use_color" default="false" />
-  <arg name="min_cluster_size" default="100" />
+  <arg name="min_cluster_size" default="75" />
   <arg name="max_cluster_size" default="12500" />
   <arg name="segmentation_cloud" default="camera_side/depth_registered/points" />
   <arg name="zones_config" default="$(find task_sim_nimbus_bridge)/config/segmentation_zones.yaml" />

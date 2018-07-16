@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   fetch_grasp_suggestion
   geometry_msgs
+  kinova_msgs
   message_generation
   pcl_conversions
   pcl_ros

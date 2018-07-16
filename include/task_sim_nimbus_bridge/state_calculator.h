@@ -14,6 +14,12 @@
 #include <task_sim_nimbus_bridge/UpdateState.h>
 #include <tf/transform_listener.h>
 
+#include <pcl/common/common.h>
+#include <pcl/filters/conditional_removal.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
 class StateCalculator
 {
 public:
@@ -27,6 +33,7 @@ private:
   ros::Subscriber gripper_state_subscriber;
   ros::Publisher state_publisher;
   ros::Publisher recognized_objects_publisher;
+  ros::Publisher lid_debug_publisher;
 
   ros::ServiceClient segment_client;
   ros::ServiceClient classify_client;
@@ -59,6 +66,9 @@ private:
 
   bool updateStateCallback(task_sim_nimbus_bridge::UpdateState::Request &req,
       task_sim_nimbus_bridge::UpdateState::Response &res);
+
+  void inverseBound(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr &in, const pcl::IndicesConstPtr &indices_in,
+      const pcl::ConditionBase<pcl::PointXYZRGB>::Ptr &conditions, const pcl::IndicesPtr &indices_out) const;
 };
 
 Eigen::Vector3f RGB2Lab (const Eigen::Vector3f& colorRGB);

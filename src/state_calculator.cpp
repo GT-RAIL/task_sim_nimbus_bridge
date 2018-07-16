@@ -153,6 +153,10 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
 
   recognized_objects.objects.clear();
 
+  rail_manipulation_msgs::SegmentedObjectList lid_objects;
+  lid_objects.header.frame_id = msg.header.frame_id;
+  lid_objects.objects.clear();
+  bool lid_found = false;
   vector<string> updated;
   for (unsigned int i = 0; i < msg.objects.size(); i ++)
   {
@@ -169,17 +173,17 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     classify.request.features.push_back(lab[0]);
     classify.request.features.push_back(lab[1]);
     classify.request.features.push_back(lab[2]);
-    if (box.dimensions.x > box.dimensions.y)
+    if (box.dimensions.y > box.dimensions.z)
     {
-      classify.request.features.push_back(box.dimensions.x);
+      classify.request.features.push_back(box.dimensions.z);
       classify.request.features.push_back(box.dimensions.y);
     }
     else
     {
       classify.request.features.push_back(box.dimensions.y);
-      classify.request.features.push_back(box.dimensions.x);
+      classify.request.features.push_back(box.dimensions.z);
     }
-    classify.request.features.push_back(box.dimensions.z);
+    classify.request.features.push_back(box.dimensions.x);
 
     if (not classify_client.call(classify))
     {
@@ -196,8 +200,13 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     else if (label == "tape")
       label = "apple";
     else if (label == "marker")
-    {
       label = "banana";
+    else if (label == "lid" || label == "lidbox" || label == "box")
+    {
+      if (label == "lid")
+        lid_found = true;
+      lid_objects.objects.push_back(msg.objects[i]);
+      lid_objects.objects[lid_objects.objects.size() - 1].name = label;
     }
 
     if (label == "apple" or label == "banana" or label == "carrot" or label == "daikon")
@@ -234,6 +243,82 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     }
   }
 
+  if (lid_found)
+  {
+    for (unsigned int i = 0; i < lid_objects.objects.size(); i ++)
+    {
+      if (lid_objects.objects[i].name == "lid")
+      {
+        recognized_objects.objects.push_back(lid_objects.objects[i]);
+        state.lid_position = lid_objects.objects[i].center;
+
+        break;
+      }
+    }
+  }
+  else if (!lid_objects.objects.empty())
+  {
+    for (unsigned int i = 0; i < lid_objects.objects.size(); i ++)
+    {
+      if (lid_objects.objects[i].name == "lidbox")
+      {
+        rail_manipulation_msgs::SegmentedObject obj = lid_objects.objects[i];
+
+        double lower_bound = lid_objects.objects[i].center.z - lid_objects.objects[i].height/2.0 + 0.16;
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr lid_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::PCLPointCloud2 converter;
+        pcl_conversions::toPCL(lid_objects.objects[i].point_cloud, converter);
+        pcl::fromPCLPointCloud2(converter, *object_cloud);
+
+        pcl::IndicesPtr filter_indices(new vector<int>);
+        filter_indices->resize(object_cloud->points.size());
+        for (size_t i = 0; i < object_cloud->points.size(); i++)
+        {
+          filter_indices->at(i) = i;
+        }
+
+        // check bounding areas (bound the inverse of what we want since PCL will return the removed indicies)
+        pcl::ConditionOr<pcl::PointXYZRGB>::Ptr bounds(new pcl::ConditionOr<pcl::PointXYZRGB>);
+        bounds->addComparison(pcl::FieldComparison<pcl::PointXYZRGB>::ConstPtr(
+            new pcl::FieldComparison<pcl::PointXYZRGB>("z", pcl::ComparisonOps::LE, lower_bound))
+        );
+
+        // remove past the given bounds
+        this->inverseBound(object_cloud, filter_indices, bounds, filter_indices);
+
+        // extract point cloud
+        pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+        extract.setInputCloud(object_cloud);
+        extract.setIndices(filter_indices);
+        extract.filter(*lid_cloud);
+
+        obj.name = "lid";
+        pcl::toPCLPointCloud2(*lid_cloud, converter);
+        pcl_conversions::fromPCL(converter, obj.point_cloud);
+
+        // calculate the new center
+        // calculate the bounding box
+        Eigen::Vector4f min_pt, max_pt;
+        pcl::getMinMax3D(*lid_cloud, min_pt, max_pt);
+        obj.width = max_pt[0] - min_pt[0];
+        obj.depth = max_pt[1] - min_pt[1];
+        obj.height = max_pt[2] - min_pt[2];
+
+        // calculate the center
+        obj.center.x = (max_pt[0] + min_pt[0]) / 2.0;
+        obj.center.y = (max_pt[1] + min_pt[1]) / 2.0;
+        obj.center.z = (max_pt[2] + min_pt[2]) / 2.0;
+
+        recognized_objects.objects.push_back(obj);
+        state.lid_position = obj.center;
+
+        break;
+      }
+    }
+  }
+
   for (unsigned int i = 0; i < state.objects.size(); i ++)
   {
     bool was_updated = false;
@@ -267,6 +352,20 @@ bool StateCalculator::updateStateCallback(task_sim_nimbus_bridge::UpdateState::R
   state_publisher.publish(state);
 
   return true;
+}
+
+void StateCalculator::inverseBound(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr &in,
+    const pcl::IndicesConstPtr &indices_in,
+    const pcl::ConditionBase<pcl::PointXYZRGB>::Ptr &conditions,
+    const pcl::IndicesPtr &indices_out) const
+{
+  // use a temp point cloud to extract the indices
+  pcl::PointCloud<pcl::PointXYZRGB> tmp;
+  pcl::ConditionalRemoval<pcl::PointXYZRGB> removal(conditions, true);
+  removal.setInputCloud(in);
+  removal.setIndices(indices_in);
+  removal.filter(tmp);
+  *indices_out = *removal.getRemovedIndices();
 }
 
 //convert from RGB color space to CIELAB color space, taken and adapted from pcl/registration/gicp6d

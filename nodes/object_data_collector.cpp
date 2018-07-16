@@ -37,6 +37,7 @@ void ObjectDataCollector::showObject(unsigned int index)
 {
   //show object point cloud
   currentObjectPublisher.publish(objects.objects[index].point_cloud);
+  box_pose_publisher = pnh.advertise<geometry_msgs::PoseStamped>("box_pose", 1, this);
 
   //calculate bounding box
   task_sim_nimbus_bridge::BoundingBox box =
@@ -45,10 +46,12 @@ void ObjectDataCollector::showObject(unsigned int index)
   //sort from least to greatest
   // vector<float> dims;
   dims.clear();
-  dims.push_back(box.dimensions.x);
   dims.push_back(box.dimensions.y);
-  sort(dims.begin(), dims.end());
   dims.push_back(box.dimensions.z);
+  sort(dims.begin(), dims.end());
+  dims.push_back(box.dimensions.x);
+
+  box_pose_publisher.publish(box.pose);
 
   Eigen::Vector3f rgb;
   rgb[0] = objects.objects[index].marker.color.r;
