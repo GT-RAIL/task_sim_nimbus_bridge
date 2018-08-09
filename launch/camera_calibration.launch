@@ -29,5 +29,6 @@
         <arg name="camera_frame_name" value="$(arg camera_frame_name)"/>
         <arg name="robot_ee_frame_name" value="$(arg robot_ee_frame_name)"/>
         <arg name="marker_frame_name" value="$(arg marker_frame_name)"/>
+        <arg name="rviz" value="true" />
     </include>
 </launch>
