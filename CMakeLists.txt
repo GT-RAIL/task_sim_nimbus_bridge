@@ -33,6 +33,8 @@ add_message_files(
 add_service_files(
   FILES
   Classify.srv
+  CorrectPose.srv
+  SetInGripper.srv
   UpdateState.srv
 )
 

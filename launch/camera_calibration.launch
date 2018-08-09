@@ -7,6 +7,12 @@
     <arg name="cam_info_topic" default="/camera_cal/rgb/camera_info" />
     <arg name="output_frame" default="camera_cal_link" />
 
+    <!-- calibrator -->
+    <arg name="base_frame_name"       default="/table_base_link"/>
+    <arg name="camera_frame_name"     default="/camera_cal_link"/>
+    <arg name="robot_ee_frame_name"   default="/nimbus_ee_link"/>
+    <arg name="marker_frame_name"     default="/ar_marker_100"/>
+
     <!-- Marker tracking -->
     <node name="ar_track_alvar" pkg="ar_track_alvar" type="individualMarkers" respawn="false" output="screen">
         <param name="marker_size" value="$(arg marker_size)" />
@@ -17,4 +23,11 @@
         <remap from="camera_image"  to="$(arg cam_image_topic)" />
         <remap from="camera_info"   to="$(arg cam_info_topic)" />
     </node>
+
+    <include file="$(find camera_robot_calibration)/launch/capture_points.launch">
+        <arg name="base_frame_name" value="$(arg base_frame_name)"/>
+        <arg name="camera_frame_name" value="$(arg camera_frame_name)"/>
+        <arg name="robot_ee_frame_name" value="$(arg robot_ee_frame_name)"/>
+        <arg name="marker_frame_name" value="$(arg marker_frame_name)"/>
+    </include>
 </launch>

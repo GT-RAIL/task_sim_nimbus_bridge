@@ -54,28 +54,41 @@ bool Controller::executeCallback(task_sim::Execute::Request &req, task_sim::Exec
     {
       if (state.object_in_gripper != "")
       {
-        for (unsigned int i = 0; i < state.objects.size(); i ++)
+        if (state.object_in_gripper == "lid")
         {
-          if (state.object_in_gripper == state.objects[i].name)
+          state.lid_position.x = state.gripper_position.x;
+          state.lid_position.y = state.gripper_position.y;
+          state.lid_position.z = state.gripper_position.z - 0.12;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < state.objects.size(); i++)
           {
-            // TODO: Update place position for daikon in box (or other things in box for longer fall?)
-            state.objects[i].position.x = state.gripper_position.x;
-            state.objects[i].position.y = state.gripper_position.y;
-            state.objects[i].position.z = state.gripper_position.z - 0.12;
-            if (state.object_in_gripper == "daikon" && req.action.object == "box")
+            if (state.object_in_gripper == state.objects[i].name)
             {
-              state.objects[i].position.z -= 0.1;
+              // TODO: Update place position for daikon in box (or other things in box for longer fall?)
+              state.objects[i].position.x = state.gripper_position.x;
+              state.objects[i].position.y = state.gripper_position.y;
+              state.objects[i].position.z = state.gripper_position.z - 0.12;
+              if (state.object_in_gripper == "daikon" && req.action.object == "box")
+              {
+                state.objects[i].position.z -= 0.1;
+              }
+              if (req.action.object == "box")
+              {
+                state.objects[i].position.z -= 0.1;
+              }
+              break;
             }
-            if (req.action.object == "box")
-            {
-              state.objects[i].position.z -= 0.1;
-            }
-            state.objects[i].in_gripper = false;
-            break;
           }
         }
 
         state.object_in_gripper = "";
+      }
+
+      for (unsigned int i = 0; i < state.objects.size(); i ++)
+      {
+        state.objects[i].in_gripper = false;
       }
     }
     else if (req.action.action_type == task_sim::Action::MOVE_ARM ||
@@ -83,32 +96,39 @@ bool Controller::executeCallback(task_sim::Execute::Request &req, task_sim::Exec
         req.action.action_type == task_sim::Action::LOWER_ARM ||
         req.action.action_type == task_sim::Action::RESET_ARM)
     {
+      if (req.action.action_type == task_sim::Action::MOVE_ARM && req.action.object == "r" && state.object_in_gripper == "drawer")
+      {
+        state.drawer_opening = 0.25;
+      }
+
       if (state.object_in_gripper != "")
       {
-        for (unsigned int i = 0; i < state.objects.size(); i ++)
+        if (state.object_in_gripper == "lid")
         {
-          if (state.object_in_gripper == state.objects[i].name)
+          state.lid_position.x = state.gripper_position.x;
+          state.lid_position.y = state.gripper_position.y;
+          state.lid_position.z = state.gripper_position.z;
+        }
+        else
+        {
+          for (unsigned int i = 0; i < state.objects.size(); i++)
           {
-            state.objects[i].position.x = state.gripper_position.x;
-            state.objects[i].position.y = state.gripper_position.y;
-            state.objects[i].position.z = state.gripper_position.z;
-            break;
+            if (state.object_in_gripper == state.objects[i].name)
+            {
+              state.objects[i].position.x = state.gripper_position.x;
+              state.objects[i].position.y = state.gripper_position.y;
+              state.objects[i].position.z = state.gripper_position.z;
+              break;
+            }
           }
         }
       }
     }
     else if (req.action.action_type == task_sim::Action::OPEN_GRIPPER)
     {
-      if (state.object_in_gripper != "")
+      for (unsigned int i = 0; i < state.objects.size(); i ++)
       {
-        for (unsigned int i = 0; i < state.objects.size(); i ++)
-        {
-          if (state.object_in_gripper == state.objects[i].name)
-          {
-            state.objects[i].in_gripper = false;
-            break;
-          }
-        }
+        state.objects[i].in_gripper = false;
       }
       state.object_in_gripper = "";
     }
@@ -137,8 +157,9 @@ bool Controller::executeCallback(task_sim::Execute::Request &req, task_sim::Exec
         {
           if (sqrt(pow(state.gripper_position.x - state.objects[i].position.x, 2) +
                        pow(state.gripper_position.y - state.objects[i].position.y, 2) +
-                       pow(state.gripper_position.z - state.objects[i].position.z, 2)) > 0.2)
+                       pow(state.gripper_position.z - state.objects[i].position.z, 2)) > 0.5)
           {
+            ROS_INFO("Incorrectly assigned object in gripper, setting object_in_gripper to None.");
             state.object_in_gripper = "";
             state.objects[i].in_gripper = false;
             change = true;

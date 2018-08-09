@@ -11,6 +11,8 @@
 #include <task_sim/QueryState.h>
 #include <task_sim/State.h>
 #include <task_sim_nimbus_bridge/Classify.h>
+#include <task_sim_nimbus_bridge/CorrectPose.h>
+#include <task_sim_nimbus_bridge/SetInGripper.h>
 #include <task_sim_nimbus_bridge/UpdateState.h>
 #include <tf/transform_listener.h>
 
@@ -39,6 +41,8 @@ private:
   ros::ServiceClient classify_client;
   ros::ServiceServer state_server;
   ros::ServiceServer update_state_server;
+  ros::ServiceServer set_in_gripper_server;
+  ros::ServiceServer correct_pose_server;
 
   tf::TransformListener tf_listener;
 
@@ -66,6 +70,12 @@ private:
 
   bool updateStateCallback(task_sim_nimbus_bridge::UpdateState::Request &req,
       task_sim_nimbus_bridge::UpdateState::Response &res);
+
+  bool updateInGripperCallback(task_sim_nimbus_bridge::SetInGripper::Request &req,
+      task_sim_nimbus_bridge::SetInGripper::Response &res);
+
+  bool correctPoseCallback(task_sim_nimbus_bridge::CorrectPose::Request &req,
+      task_sim_nimbus_bridge::CorrectPose::Response &res);
 
   void inverseBound(const pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr &in, const pcl::IndicesConstPtr &indices_in,
       const pcl::ConditionBase<pcl::PointXYZRGB>::Ptr &conditions, const pcl::IndicesPtr &indices_out) const;

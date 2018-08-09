@@ -19,6 +19,8 @@ StateCalculator::StateCalculator() : pn("~")
   classify_client = n.serviceClient<task_sim_nimbus_bridge::Classify>("object_classifier/classify");
   state_server = pn.advertiseService("calculate_state", &StateCalculator::calculateStateCallback, this);
   update_state_server = pn.advertiseService("update_state", &StateCalculator::updateStateCallback, this);
+  set_in_gripper_server = pn.advertiseService("set_in_gripper", &StateCalculator::updateInGripperCallback, this);
+  correct_pose_server = pn.advertiseService("correct_pose", &StateCalculator::correctPoseCallback, this);
 }
 
 void StateCalculator::gripperStateCallback(const sensor_msgs::JointState &msg)
@@ -151,7 +153,7 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     return;
   }
 
-  recognized_objects.objects.clear();
+  //recognized_objects.objects.clear();
 
   rail_manipulation_msgs::SegmentedObjectList lid_objects;
   lid_objects.header.frame_id = msg.header.frame_id;
@@ -237,6 +239,14 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         state.objects.push_back(item);
       }
 
+      for (size_t j = 0; j < recognized_objects.objects.size(); j ++)
+      {
+        if (recognized_objects.objects[j].name == label)
+        {
+          recognized_objects.objects.erase(recognized_objects.objects.begin() + j);
+          break;
+        }
+      }
       recognized_objects.objects.push_back(msg.objects[i]);
       recognized_objects.objects[recognized_objects.objects.size() - 1].recognized = true;
       recognized_objects.objects[recognized_objects.objects.size() - 1].name = label;
@@ -249,6 +259,14 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
     {
       if (lid_objects.objects[i].name == "lid")
       {
+        for (size_t j = 0; j < recognized_objects.objects.size(); j ++)
+        {
+          if (recognized_objects.objects[j].name == "lid")
+          {
+            recognized_objects.objects.erase(recognized_objects.objects.begin() + j);
+            break;
+          }
+        }
         recognized_objects.objects.push_back(lid_objects.objects[i]);
         state.lid_position = lid_objects.objects[i].center;
 
@@ -311,6 +329,14 @@ void StateCalculator::segmentedObjectsCallback(const rail_manipulation_msgs::Seg
         obj.center.y = (max_pt[1] + min_pt[1]) / 2.0;
         obj.center.z = (max_pt[2] + min_pt[2]) / 2.0;
 
+        for (size_t j = 0; j < recognized_objects.objects.size(); j ++)
+        {
+          if (recognized_objects.objects[j].name == "lid")
+          {
+            recognized_objects.objects.erase(recognized_objects.objects.begin() + j);
+            break;
+          }
+        }
         recognized_objects.objects.push_back(obj);
         state.lid_position = obj.center;
 
@@ -348,6 +374,45 @@ bool StateCalculator::updateStateCallback(task_sim_nimbus_bridge::UpdateState::R
     task_sim_nimbus_bridge::UpdateState::Response &res)
 {
   state = req.state;
+
+  state_publisher.publish(state);
+
+  return true;
+}
+
+bool StateCalculator::updateInGripperCallback(task_sim_nimbus_bridge::SetInGripper::Request &req,
+    task_sim_nimbus_bridge::SetInGripper::Response &res)
+{
+  state.object_in_gripper = req.item;
+  for (size_t i = 0; i < state.objects.size(); i ++)
+  {
+    if (req.item == state.objects[i].name)
+    {
+      state.objects[i].in_gripper = true;
+    }
+    else
+    {
+      state.objects[i].in_gripper = false;
+    }
+  }
+
+  state_publisher.publish(state);
+
+  return true;
+}
+
+bool StateCalculator::correctPoseCallback(task_sim_nimbus_bridge::CorrectPose::Request &req,
+    task_sim_nimbus_bridge::CorrectPose::Response &res)
+{
+  state.object_in_gripper = req.item;
+  for (size_t i = 0; i < state.objects.size(); i ++)
+  {
+    if (req.item == state.objects[i].name)
+    {
+      state.objects[i].position = req.point;
+      break;
+    }
+  }
 
   state_publisher.publish(state);
 
